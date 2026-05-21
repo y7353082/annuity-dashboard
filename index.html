@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PB-ROE 策略分析工具</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            dark: { bg: '#0b1120', card: '#151e32', border: '#1e293b', hover: '#1e293b' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #0b1120; color: #e2e8f0; }
+    .card { background: #151e32; border: 1px solid #1e293b; border-radius: 0.5rem; }
+    .slider { -webkit-appearance: none; appearance: none; height: 4px; background: #334155; border-radius: 2px; outline: none; }
+    .slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; background: #38bdf8; border-radius: 50%; cursor: pointer; }
+    .slider::-moz-range-thumb { width: 16px; height: 16px; background: #38bdf8; border-radius: 50%; cursor: pointer; border: none; }
+    .btn-primary { background: #0ea5e9; color: white; border-radius: 0.375rem; padding: 0.5rem 1rem; font-weight: 500; transition: background 0.2s; }
+    .btn-primary:hover { background: #0284c7; }
+    .btn-secondary { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 0.375rem; padding: 0.5rem 1rem; transition: all 0.2s; }
+    .btn-secondary:hover { background: #334155; }
+    .checkbox { accent-color: #0ea5e9; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0b1120; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    .modal-overlay { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
+    tr.highlighted { background: rgba(14,165,233,0.15) !important; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <!-- Header -->
+  <header class="border-b border-dark-border px-6 py-4">
+    <div class="max-w-[1600px] mx-auto">
+      <div class="flex items-center justify-between mb-3">
+        <h1 class="text-2xl font-bold text-white flex items-center gap-2">
+          <svg class="w-7 h-7 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          PB-ROE 策略分析工具
+        </h1>
+        <span class="text-xs text-slate-500">模拟数据 · 仅供学习研究</span>
+      </div>
+      <div class="bg-dark-card border border-dark-border rounded-lg p-4 text-sm leading-relaxed text-slate-300">
+        <p class="mb-2"><strong class="text-sky-400">PB-ROE 策略</strong>是价值投资中的经典分析框架。核心逻辑：寻找<strong class="text-emerald-400">高 ROE（盈利能力）</strong>且<strong class="text-emerald-400">低 PB（估值便宜）</strong>的股票。将股票映射到散点图上，偏离合理估值线（回归线）的股票可能存在低估或高估机会。四象限中，<strong class="text-emerald-400">右上到左下的对角线附近</strong>为合理估值区域，<strong class="text-amber-400">左上区域</strong>（高 ROE、低 PB）为策略优选区。</p>
+        <div class="flex gap-6 text-xs mt-2">
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-emerald-500"></span>高ROE低PB — 优选区</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-sky-500"></span>高ROE高PB — 成长溢价</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-amber-500"></span>低ROE低PB — 价值陷阱风险</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-rose-500"></span>低ROE高PB — 回避区</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-[1600px] mx-auto p-6">
+    <div class="grid grid-cols-12 gap-4">
+
+      <!-- Left: Control Panel -->
+      <aside class="col-span-12 lg:col-span-3 xl:col-span-2 space-y-4">
+        <div class="card p-4">
+          <h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+            <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+            数据控制
+          </h3>
+
+          <div class="mb-4">
+            <label class="text-xs text-slate-400 block mb-2">股票数量: <span id="countVal" class="text-sky-400 font-mono">200</span></label>
+            <input type="range" id="stockCount" class="slider w-full" min="50" max="500" value="200" step="10">
+          </div>
+
+          <div class="mb-4">
+            <label class="text-xs text-slate-400 block mb-2">时间维度</label>
+            <select id="quarterSelect" class="w-full bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm text-white focus:border-sky-500 focus:outline-none">
+              <option value="0">2023 Q1</option>
+              <option value="1">2023 Q2</option>
+              <option value="2">2023 Q3</option>
+              <option value="3" selected>2023 Q4</option>
+            </select>
+          </div>
+
+          <div class="mb-4">
+            <label class="text-xs text-slate-400 block mb-2">行业筛选</label>
+            <div class="space-y-1.5" id="sectorFilters">
+              <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-white transition-colors">
+                <input type="checkbox" class="checkbox" value="金融" checked> <span class="text-slate-300">金融</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-white transition-colors">
+                <input type="checkbox" class="checkbox" value="消费" checked> <span class="text-slate-300">消费</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-white transition-colors">
+                <input type="checkbox" class="checkbox" value="科技" checked> <span class="text-slate-300">科技</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-white transition-colors">
+                <input type="checkbox" class="checkbox" value="制造" checked> <span class="text-slate-300">制造</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-white transition-colors">
+                <input type="checkbox" class="checkbox" value="医药" checked> <span class="text-slate-300">医药</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-white transition-colors">
+                <input type="checkbox" class="checkbox" value="能源" checked> <span class="text-slate-300">能源</span>
+              </label>
+            </div>
+          </div>
+
+          <hr class="border-dark-border my-3">
+
+          <div class="mb-3">
+            <label class="text-xs text-slate-400 block mb-2">ROE 范围: <span id="roeVal" class="text-sky-400 font-mono">0% ~ 40%</span></label>
+            <div class="flex gap-2 items-center">
+              <input type="number" id="roeMin" class="w-16 bg-dark-bg border border-dark-border rounded px-2 py-1 text-xs text-white text-center" value="0" min="0" max="40">
+              <span class="text-slate-500">-</span>
+              <input type="number" id="roeMax" class="w-16 bg-dark-bg border border-dark-border rounded px-2 py-1 text-xs text-white text-center" value="40" min="0" max="40">
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="text-xs text-slate-400 block mb-2">PB 范围: <span id="pbVal" class="text-sky-400 font-mono">0 ~ 10</span></label>
+            <div class="flex gap-2 items-center">
+              <input type="number" id="pbMin" class="w-16 bg-dark-bg border border-dark-border rounded px-2 py-1 text-xs text-white text-center" value="0" min="0" max="20" step="0.1">
+              <span class="text-slate-500">-</span>
+              <input type="number" id="pbMax" class="w-16 bg-dark-bg border border-dark-border rounded px-2 py-1 text-xs text-white text-center" value="10" min="0" max="20" step="0.1">
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label class="text-xs text-slate-400 block mb-2">市值范围: <span id="capVal" class="text-sky-400 font-mono">50亿 ~ 20000亿</span></label>
+            <div class="flex gap-2 items-center">
+              <input type="number" id="capMin" class="w-20 bg-dark-bg border border-dark-border rounded px-2 py-1 text-xs text-white text-center" value="50" min="10" max="20000">
+              <span class="text-slate-500">-</span>
+              <input type="number" id="capMax" class="w-20 bg-dark-bg border border-dark-border rounded px-2 py-1 text-xs text-white text-center" value="20000" min="10" max="20000">
+            </div>
+          </div>
+
+          <button id="refreshBtn" class="btn-primary w-full text-sm">刷新数据</button>
+        </div>
+      </aside>
+
+      <!-- Center: Scatter Plot -->
+      <section class="col-span-12 lg:col-span-6 xl:col-span-7">
+        <div class="card p-4 h-[560px] flex flex-col">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-semibold text-white">PB-ROE 散点图</h3>
+            <span class="text-xs text-slate-500" id="scatterInfo">点击气泡查看详情 · 拖动缩放</span>
+          </div>
+          <div id="scatterChart" class="flex-1"></div>
+        </div>
+      </section>
+
+      <!-- Right: Stats Cards + Pie Chart -->
+      <aside class="col-span-12 lg:col-span-3 xl:col-span-3 space-y-4">
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="card p-3 text-center">
+            <div class="text-2xl font-bold text-white" id="statCount">0</div>
+            <div class="text-xs text-slate-400 mt-1">股票数量</div>
+          </div>
+          <div class="card p-3 text-center">
+            <div class="text-2xl font-bold text-emerald-400" id="statPick">0</div>
+            <div class="text-xs text-slate-400 mt-1">策略优选</div>
+          </div>
+          <div class="card p-3 text-center">
+            <div class="text-2xl font-bold text-sky-400" id="statAvgRoe">0%</div>
+            <div class="text-xs text-slate-400 mt-1">平均 ROE</div>
+          </div>
+          <div class="card p-3 text-center">
+            <div class="text-2xl font-bold text-amber-400" id="statAvgPb">0</div>
+            <div class="text-xs text-slate-400 mt-1">平均 PB</div>
+          </div>
+          <div class="card p-3 text-center">
+            <div class="text-2xl font-bold text-violet-400" id="statMedRoe">0%</div>
+            <div class="text-xs text-slate-400 mt-1">ROE 中位数</div>
+          </div>
+          <div class="card p-3 text-center">
+            <div class="text-2xl font-bold text-rose-400" id="statMedPb">0</div>
+            <div class="text-xs text-slate-400 mt-1">PB 中位数</div>
+          </div>
+        </div>
+
+        <!-- Sector Pie -->
+        <div class="card p-4">
+          <h3 class="text-sm font-semibold text-white mb-2">行业分布</h3>
+          <div id="pieChart" style="height: 220px;"></div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- History Track -->
+    <div id="historySection" class="mt-4 card p-4 hidden">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+          <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          历史回溯 — <span id="historyStockName" class="text-sky-400"></span>
+        </h3>
+        <button id="closeHistory" class="text-xs text-slate-400 hover:text-white">关闭</button>
+      </div>
+      <div id="historyChart" style="height: 240px;"></div>
+    </div>
+
+    <!-- Stock Table -->
+    <div class="mt-4 card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold text-white">股票列表 <span class="text-slate-500 font-normal" id="tableCount">(0只)</span></h3>
+        <div class="flex gap-2">
+          <button id="sortByScore" class="btn-secondary text-xs">按评分排序</button>
+          <button id="sortByRoe" class="btn-secondary text-xs">按 ROE 排序</button>
+          <button id="sortByPb" class="btn-secondary text-xs">按 PB 排序</button>
+          <button id="exportBtn" class="btn-primary text-xs flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            导出 CSV
+          </button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-xs text-slate-400 border-b border-dark-border">
+              <th class="text-left py-2 px-3 font-medium">股票</th>
+              <th class="text-left py-2 px-3 font-medium">行业</th>
+              <th class="text-right py-2 px-3 font-medium cursor-pointer hover:text-white" onclick="app.sortTable('roe')">ROE</th>
+              <th class="text-right py-2 px-3 font-medium cursor-pointer hover:text-white" onclick="app.sortTable('pb')">PB</th>
+              <th class="text-right py-2 px-3 font-medium">市值(亿)</th>
+              <th class="text-right py-2 px-3 font-medium">评分</th>
+              <th class="text-center py-2 px-3 font-medium">象限</th>
+            </tr>
+          </thead>
+          <tbody id="stockTableBody" class="text-slate-300">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Financial Detail Modal -->
+  <div id="detailModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
+    <div class="card w-full max-w-lg max-h-[80vh] overflow-y-auto">
+      <div class="p-5">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white" id="modalName">--</h2>
+            <p class="text-xs text-slate-400" id="modalCode">--</p>
+          </div>
+          <button id="closeModal" class="text-slate-400 hover:text-white p-1">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-4 gap-3 mb-4">
+          <div class="bg-dark-bg rounded p-2 text-center">
+            <div class="text-xs text-slate-400">ROE</div>
+            <div class="text-sm font-bold text-sky-400" id="modalRoe">--</div>
+          </div>
+          <div class="bg-dark-bg rounded p-2 text-center">
+            <div class="text-xs text-slate-400">PB</div>
+            <div class="text-sm font-bold text-amber-400" id="modalPb">--</div>
+          </div>
+          <div class="bg-dark-bg rounded p-2 text-center">
+            <div class="text-xs text-slate-400">市值</div>
+            <div class="text-sm font-bold text-white" id="modalCap">--</div>
+          </div>
+          <div class="bg-dark-bg rounded p-2 text-center">
+            <div class="text-xs text-slate-400">评分</div>
+            <div class="text-sm font-bold text-emerald-400" id="modalScore">--</div>
+          </div>
+        </div>
+
+        <h4 class="text-sm font-semibold text-white mb-2">模拟财务数据（当前季度）</h4>
+        <div class="space-y-2 mb-4">
+          <div class="flex justify-between text-sm py-1 border-b border-dark-border">
+            <span class="text-slate-400">营业收入</span>
+            <span class="text-white font-mono" id="modalRevenue">--</span>
+          </div>
+          <div class="flex justify-between text-sm py-1 border-b border-dark-border">
+            <span class="text-slate-400">净利润</span>
+            <span class="text-white font-mono" id="modalProfit">--</span>
+          </div>
+          <div class="flex justify-between text-sm py-1 border-b border-dark-border">
+            <span class="text-slate-400">总资产</span>
+            <span class="text-white font-mono" id="modalAssets">--</span>
+          </div>
+          <div class="flex justify-between text-sm py-1 border-b border-dark-border">
+            <span class="text-slate-400">净资产</span>
+            <span class="text-white font-mono" id="modalEquity">--</span>
+          </div>
+          <div class="flex justify-between text-sm py-1 border-b border-dark-border">
+            <span class="text-slate-400">资产负债率</span>
+            <span class="text-white font-mono" id="modalDebtRatio">--</span>
+          </div>
+          <div class="flex justify-between text-sm py-1 border-b border-dark-border">
+            <span class="text-slate-400">毛利率</span>
+            <span class="text-white font-mono" id="modalGrossMargin">--</span>
+          </div>
+          <div class="flex justify-between text-sm py-1">
+            <span class="text-slate-400">营收同比增长</span>
+            <span class="font-mono" id="modalRevenueGrowth">--</span>
+          </div>
+        </div>
+
+        <div class="flex gap-2">
+          <button id="trackHistoryBtn" class="btn-primary flex-1 text-sm">查看历史回溯</button>
+          <button id="closeModalBtn" class="btn-secondary flex-1 text-sm">关闭</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ===== Data Generation =====
+const SECTOR_CONFIG = {
+  金融: { roeMean: 10, roeStd: 3, pbMean: 0.9, pbStd: 0.4, capMin: 800, capMax: 20000, color: '#f59e0b' },
+  消费: { roeMean: 15, roeStd: 5, pbMean: 3.5, pbStd: 1.5, capMin: 200, capMax: 8000, color: '#10b981' },
+  科技: { roeMean: 8, roeStd: 6, pbMean: 4.0, pbStd: 2.0, capMin: 100, capMax: 5000, color: '#06b6d4' },
+  制造: { roeMean: 12, roeStd: 4, pbMean: 2.0, pbStd: 0.8, capMin: 150, capMax: 6000, color: '#8b5cf6' },
+  医药: { roeMean: 11, roeStd: 5, pbMean: 3.0, pbStd: 1.2, capMin: 200, capMax: 7000, color: '#ec4899' },
+  能源: { roeMean: 9, roeStd: 4, pbMean: 1.2, pbStd: 0.5, capMin: 300, capMax: 10000, color: '#ef4444' },
+};
+
+const STOCK_NAMES = {
+  金融: ['工商银行','建设银行','农业银行','中国银行','招商银行','平安银行','中信证券','华泰证券','中国人寿','中国太保','中国平安','兴业银行','浦发银行','民生银行','光大银行','交通银行','华夏银行','北京银行','南京银行','宁波银行','杭州银行','江苏银行','上海银行','成都银行','长沙银行','贵阳银行','郑州银行','青岛银行','苏州银行','西安银行','重庆银行','齐鲁银行','厦门银行','兰州银行','瑞丰银行','常熟银行','江阴银行','张家港行','苏农银行','紫金银行','无锡银行'],
+  消费: ['贵州茅台','五粮液','泸州老窖','山西汾酒','洋河股份','古井贡酒','今世缘','口子窖','迎驾贡酒','水井坊','舍得酒业','酒鬼酒','青岛啤酒','重庆啤酒','燕京啤酒','珠江啤酒','海天味业','中炬高新','千禾味业','恒顺醋业','涪陵榨菜','安琪酵母','伊利股份','蒙牛乳业','光明乳业','新乳业','三元股份','妙可蓝多','百润股份','东鹏饮料','养元饮品','香飘飘','元祖股份','桃李面包','三只松鼠','良品铺子','洽洽食品','盐津铺子','甘源食品','劲仔食品'],
+  科技: ['中兴通讯','烽火通信','亨通光电','中天科技','长飞光纤','信维通信','武汉凡谷','大富科技','盛路通信','春兴精工','通宇通讯','移远通信','广和通','美格智能','有方科技','日海智能','高新兴','东土科技','工业富联','浪潮信息','中科曙光','紫光股份','星网锐捷','锐捷网络','深信服','奇安信','启明星辰','绿盟科技','天融信','山石网科','安恒信息','迪普科技','格尔软件','吉大正元','三六零','拓尔思','科大讯飞','汉王科技','大华股份','海康威视'],
+  制造: ['三一重工','中联重科','徐工机械','柳工','山推股份','安徽合力','杭叉集团','诺力股份','建设机械','恒立液压','艾迪精密','中航重机','中航光电','中航西飞','中航沈飞','洪都航空','航发动力','航发控制','钢研高纳','西部超导','宝钛股份','西部材料','抚顺特钢','图南股份','应流股份','派克新材','航宇科技','三角防务','爱乐达','新研股份','中国船舶','中国重工','中船防务','中国动力','中船科技','亚星锚链','天海防务','江龙船艇','宝鼎科技','海兰信'],
+  医药: ['恒瑞医药','复星医药','科伦药业','华东医药','丽珠集团','人福医药','健康元','华海药业','海正药业','国药一致','华润三九','云南白药','片仔癀','同仁堂','东阿阿胶','白云山','以岭药业','步长制药','济川药业','葵花药业','羚锐制药','马应龙','九芝堂','广誉远','贵州百灵','贵州三力','康缘药业','天士力','红日药业','香雪制药','上海莱士','华兰生物','天坛生物','博雅生物','派林生物','卫光生物','沃森生物','智飞生物','康泰生物','华兰疫苗'],
+  能源: ['中国石油','中国石化','中国海油','延长石油','陕西煤业','中国神华','中煤能源','兖矿能源','潞安环能','山西焦煤','淮北矿业','平煤股份','盘江股份','电投能源','华阳股份','晋控煤业','山煤国际','兰花科创','冀中能源','开滦股份','永泰能源','广汇能源','新集能源','昊华能源','上海能源','大有能源','郑州煤电','辽宁能源','安源煤业','云煤能源','恒源煤电','淮河能源','靖远煤电','宝新能源','粤电力A','华能国际','大唐发电','国电电力','华电国际','长江电力'],
+};
+
+const QUARTERS = ['2023 Q1','2023 Q2','2023 Q3','2023 Q4'];
+
+function randn() {
+  let u = 0, v = 0;
+  while(u === 0) u = Math.random();
+  while(v === 0) v = Math.random();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
+function randomBetween(min, max) {
+  return min + Math.random() * (max - min);
+}
+
+function generateStockData(count) {
+  const sectors = Object.keys(SECTOR_CONFIG);
+  const stocks = [];
+  let namePool = {};
+  sectors.forEach(s => namePool[s] = [...STOCK_NAMES[s]]);
+
+  for (let i = 0; i < count; i++) {
+    const sector = sectors[Math.floor(Math.random() * sectors.length)];
+    const cfg = SECTOR_CONFIG[sector];
+    const names = namePool[sector];
+    const name = names.length > 0 ? names.splice(Math.floor(Math.random() * names.length), 1)[0] : `${sector}${String(i+1).padStart(3,'0')}`;
+    const code = String(600000 + Math.floor(Math.random() * 3999));
+
+    const baseRoe = cfg.roeMean + randn() * cfg.roeStd;
+    const basePb = cfg.pbMean + randn() * cfg.pbStd;
+    const baseCap = randomBetween(cfg.capMin, cfg.capMax);
+
+    const history = [];
+    for (let q = 0; q < 4; q++) {
+      const trend = q * 0.5;
+      const noiseRoe = randn() * 1.5;
+      const noisePb = randn() * 0.3;
+      const roe = Math.max(0.5, Math.min(45, baseRoe + trend + noiseRoe));
+      const pb = Math.max(0.2, basePb + trend * 0.1 + noisePb);
+      const cap = baseCap * (1 + randn() * 0.1 + q * 0.02);
+
+      const revenue = cap * randomBetween(0.1, 0.8);
+      const profit = revenue * (roe / 100) * randomBetween(0.3, 0.6);
+      const assets = cap * randomBetween(1.5, 4);
+      const equity = cap;
+      const debtRatio = randomBetween(0.3, 0.7);
+      const grossMargin = randomBetween(0.15, 0.55);
+      const revenueGrowth = randomBetween(-0.15, 0.35);
+
+      history.push({ quarter: QUARTERS[q], roe, pb, marketCap: cap, revenue, profit, assets, equity, debtRatio, grossMargin, revenueGrowth });
+    }
+
+    stocks.push({ id: i, name, code, sector, history });
+  }
+  return stocks;
+}
+
+// ===== App Logic =====
+const app = {
+  allStocks: [],
+  filteredStocks: [],
+  selectedStock: null,
+  currentQuarter: 3,
+  sortField: 'score',
+  sortAsc: false,
+
+  charts: {},
+
+  init() {
+    this.charts.scatter = echarts.init(document.getElementById('scatterChart'));
+    this.charts.pie = echarts.init(document.getElementById('pieChart'));
+    this.charts.history = echarts.init(document.getElementById('historyChart'));
+
+    this.bindEvents();
+    this.refreshData();
+
+    window.addEventListener('resize', () => {
+      Object.values(this.charts).forEach(c => c.resize());
+    });
+  },
+
+  bindEvents() {
+    document.getElementById('stockCount').addEventListener('input', e => {
+      document.getElementById('countVal').textContent = e.target.value;
+    });
+    document.getElementById('refreshBtn').addEventListener('click', () => this.refreshData());
+    document.getElementById('quarterSelect').addEventListener('change', e => {
+      this.currentQuarter = parseInt(e.target.value);
+      this.applyFilter();
+    });
+    document.querySelectorAll('#sectorFilters input').forEach(cb => {
+      cb.addEventListener('change', () => this.applyFilter());
+    });
+    ['roeMin','roeMax','pbMin','pbMax','capMin','capMax'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => this.applyFilter());
+    });
+    document.getElementById('closeModal').addEventListener('click', () => this.closeModal());
+    document.getElementById('closeModalBtn').addEventListener('click', () => this.closeModal());
+    document.getElementById('trackHistoryBtn').addEventListener('click', () => {
+      this.closeModal();
+      this.showHistory(this.selectedStock);
+    });
+    document.getElementById('closeHistory').addEventListener('click', () => {
+      document.getElementById('historySection').classList.add('hidden');
+    });
+    document.getElementById('exportBtn').addEventListener('click', () => this.exportCSV());
+    document.getElementById('sortByScore').addEventListener('click', () => this.setSort('score'));
+    document.getElementById('sortByRoe').addEventListener('click', () => this.setSort('roe'));
+    document.getElementById('sortByPb').addEventListener('click', () => this.setSort('pb'));
+
+    document.getElementById('detailModal').addEventListener('click', e => {
+      if (e.target.id === 'detailModal') this.closeModal();
+    });
+  },
+
+  refreshData() {
+    const count = parseInt(document.getElementById('stockCount').value);
+    this.allStocks = generateStockData(count);
+    this.applyFilter();
+  },
+
+  getFilteredSectors() {
+    return Array.from(document.querySelectorAll('#sectorFilters input:checked')).map(cb => cb.value);
+  },
+
+  applyFilter() {
+    const sectors = this.getFilteredSectors();
+    const roeMin = parseFloat(document.getElementById('roeMin').value) || 0;
+    const roeMax = parseFloat(document.getElementById('roeMax').value) || 100;
+    const pbMin = parseFloat(document.getElementById('pbMin').value) || 0;
+    const pbMax = parseFloat(document.getElementById('pbMax').value) || 100;
+    const capMin = parseFloat(document.getElementById('capMin').value) || 0;
+    const capMax = parseFloat(document.getElementById('capMax').value) || 1e9;
+
+    this.filteredStocks = this.allStocks.filter(s => {
+      const d = s.history[this.currentQuarter];
+      return sectors.includes(s.sector)
+        && d.roe >= roeMin && d.roe <= roeMax
+        && d.pb >= pbMin && d.pb <= pbMax
+        && d.marketCap >= capMin && d.marketCap <= capMax;
+    }).map(s => {
+      const d = s.history[this.currentQuarter];
+      const score = this.calculateScore(d.roe, d.pb);
+      const quadrant = this.getQuadrant(d.roe, d.pb);
+      return { ...s, current: d, score, quadrant };
+    });
+
+    this.sortStocks();
+    this.updateUI();
+  },
+
+  calculateScore(roe, pb) {
+    if (pb <= 0) return 0;
+    const ratio = roe / pb;
+    return Math.max(0, Math.min(100, ratio * 8));
+  },
+
+  getQuadrant(roe, pb) {
+    const roeMid = 10;
+    const pbMid = 2.5;
+    if (roe >= roeMid && pb <= pbMid) return { label: '优选', cls: 'text-emerald-400', color: '#10b981' };
+    if (roe >= roeMid && pb > pbMid) return { label: '成长', cls: 'text-sky-400', color: '#0ea5e9' };
+    if (roe < roeMid && pb <= pbMid) return { label: '风险', cls: 'text-amber-400', color: '#f59e0b' };
+    return { label: '回避', cls: 'text-rose-400', color: '#f43f5e' };
+  },
+
+  setSort(field) {
+    if (this.sortField === field) {
+      this.sortAsc = !this.sortAsc;
+    } else {
+      this.sortField = field;
+      this.sortAsc = field === 'pb';
+    }
+    this.sortStocks();
+    this.renderTable();
+  },
+
+  sortTable(field) {
+    this.setSort(field);
+  },
+
+  sortStocks() {
+    this.filteredStocks.sort((a, b) => {
+      let va, vb;
+      switch(this.sortField) {
+        case 'roe': va = a.current.roe; vb = b.current.roe; break;
+        case 'pb': va = a.current.pb; vb = b.current.pb; break;
+        default: va = a.score; vb = b.score;
+      }
+      return this.sortAsc ? va - vb : vb - va;
+    });
+  },
+
+  updateUI() {
+    this.updateStats();
+    this.renderScatter();
+    this.renderPie();
+    this.renderTable();
+  },
+
+  updateStats() {
+    const n = this.filteredStocks.length;
+    const pickCount = this.filteredStocks.filter(s => s.quadrant.label === '优选').length;
+    const roes = this.filteredStocks.map(s => s.current.roe);
+    const pbs = this.filteredStocks.map(s => s.current.pb);
+    const avgRoe = n ? roes.reduce((a,b) => a+b, 0) / n : 0;
+    const avgPb = n ? pbs.reduce((a,b) => a+b, 0) / n : 0;
+    const medRoe = n ? this.median(roes) : 0;
+    const medPb = n ? this.median(pbs) : 0;
+
+    document.getElementById('statCount').textContent = n;
+    document.getElementById('statPick').textContent = pickCount;
+    document.getElementById('statAvgRoe').textContent = avgRoe.toFixed(1) + '%';
+    document.getElementById('statAvgPb').textContent = avgPb.toFixed(2);
+    document.getElementById('statMedRoe').textContent = medRoe.toFixed(1) + '%';
+    document.getElementById('statMedPb').textContent = medPb.toFixed(2);
+    document.getElementById('tableCount').textContent = `(${n}只)`;
+  },
+
+  median(arr) {
+    const s = [...arr].sort((a,b) => a-b);
+    const m = Math.floor(s.length/2);
+    return s.length % 2 ? s[m] : (s[m-1]+s[m])/2;
+  },
+
+  renderScatter() {
+    const data = this.filteredStocks.map(s => ({
+      name: s.name,
+      value: [s.current.roe, s.current.pb, s.current.marketCap, s.sector, s.id, s.score],
+      itemStyle: { color: SECTOR_CONFIG[s.sector]?.color || '#94a3b8' }
+    }));
+
+    // Regression line
+    const xs = data.map(d => d.value[0]);
+    const ys = data.map(d => d.value[1]);
+    const n = xs.length;
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    for (let i = 0; i < n; i++) {
+      sumX += xs[i]; sumY += ys[i]; sumXY += xs[i]*ys[i]; sumX2 += xs[i]*xs[i];
+    }
+    const slope = n > 1 ? (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX) : 0;
+    const intercept = n > 0 ? (sumY - slope*sumX) / n : 0;
+
+    const minX = xs.length ? Math.min(...xs) : 0;
+    const maxX = xs.length ? Math.max(...xs) : 20;
+    const lineData = [[minX, slope*minX+intercept], [maxX, slope*maxX+intercept]];
+
+    const option = {
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'item',
+        backgroundColor: '#1e293b',
+        borderColor: '#334155',
+        textStyle: { color: '#e2e8f0' },
+        formatter: p => {
+          const d = p.data;
+          return `<div style="font-weight:bold;margin-bottom:4px">${d.name}</div>
+            <div>ROE: <span style="color:#38bdf8">${d.value[0].toFixed(2)}%</span></div>
+            <div>PB: <span style="color:#fbbf24">${d.value[1].toFixed(2)}</span></div>
+            <div>市值: ${(d.value[2]/10000).toFixed(2)}万亿</div>
+            <div>行业: ${d.value[3]}</div>
+            <div>评分: ${d.value[5].toFixed(1)}</div>`;
+        }
+      },
+      grid: { left: 50, right: 30, top: 30, bottom: 40 },
+      xAxis: {
+        type: 'value', name: 'ROE (%)', nameLocation: 'middle', nameGap: 25,
+        nameTextStyle: { color: '#64748b' },
+        axisLine: { lineStyle: { color: '#334155' } },
+        axisLabel: { color: '#64748b' },
+        splitLine: { lineStyle: { color: '#1e293b' } }
+      },
+      yAxis: {
+        type: 'value', name: 'PB', nameTextStyle: { color: '#64748b' },
+        axisLine: { lineStyle: { color: '#334155' } },
+        axisLabel: { color: '#64748b' },
+        splitLine: { lineStyle: { color: '#1e293b' } }
+      },
+      series: [
+        {
+          type: 'scatter',
+          symbolSize: d => Math.sqrt(d[2]) * 0.5 + 4,
+          data,
+          emphasis: {
+            focus: 'self',
+            itemStyle: { shadowBlur: 10, shadowColor: 'rgba(56,189,248,0.5)' }
+          }
+        },
+        {
+          type: 'line',
+          data: lineData,
+          smooth: false,
+          symbol: 'none',
+          lineStyle: { color: '#64748b', type: 'dashed', width: 1.5 },
+          silent: true
+        }
+      ],
+      graphic: [
+        { type: 'text', left: '52%', top: '15%', style: { text: '高ROE 高PB\n成长溢价区', fill: '#0ea5e9', fontSize: 11, textAlign: 'center', opacity: 0.6 } },
+        { type: 'text', left: '15%', top: '15%', style: { text: '高ROE 低PB\n优选区', fill: '#10b981', fontSize: 11, textAlign: 'center', opacity: 0.6 } },
+        { type: 'text', left: '52%', top: '75%', style: { text: '低ROE 高PB\n回避区', fill: '#f43f5e', fontSize: 11, textAlign: 'center', opacity: 0.6 } },
+        { type: 'text', left: '15%', top: '75%', style: { text: '低ROE 低PB\n价值陷阱', fill: '#f59e0b', fontSize: 11, textAlign: 'center', opacity: 0.6 } },
+      ]
+    };
+
+    this.charts.scatter.setOption(option);
+    this.charts.scatter.off('click');
+    this.charts.scatter.on('click', params => {
+      const stockId = params.data.value[4];
+      const stock = this.filteredStocks.find(s => s.id === stockId);
+      if (stock) this.showDetail(stock);
+    });
+  },
+
+  renderPie() {
+    const counts = {};
+    this.filteredStocks.forEach(s => { counts[s.sector] = (counts[s.sector]||0)+1; });
+    const data = Object.entries(counts).map(([name, value]) => ({
+      name, value,
+      itemStyle: { color: SECTOR_CONFIG[name]?.color || '#94a3b8' }
+    }));
+
+    const option = {
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'item',
+        backgroundColor: '#1e293b',
+        borderColor: '#334155',
+        textStyle: { color: '#e2e8f0' },
+        formatter: '{b}: {c}只 ({d}%)'
+      },
+      series: [{
+        type: 'pie', radius: ['40%', '70%'], center: ['50%', '50%'],
+        avoidLabelOverlap: true,
+        label: { show: true, color: '#94a3b8', fontSize: 10, formatter: '{b}\n{d}%' },
+        labelLine: { lineStyle: { color: '#334155' } },
+        data
+      }]
+    };
+    this.charts.pie.setOption(option, true);
+  },
+
+  renderTable() {
+    const tbody = document.getElementById('stockTableBody');
+    tbody.innerHTML = '';
+    this.filteredStocks.forEach(s => {
+      const tr = document.createElement('tr');
+      tr.className = 'border-b border-dark-border hover:bg-dark-hover cursor-pointer transition-colors';
+      tr.dataset.id = s.id;
+      tr.innerHTML = `
+        <td class="py-2 px-3">
+          <div class="font-medium text-white">${s.name}</div>
+          <div class="text-xs text-slate-500">${s.code}</div>
+        </td>
+        <td class="py-2 px-3">
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs" style="background:${SECTOR_CONFIG[s.sector]?.color}22;color:${SECTOR_CONFIG[s.sector]?.color}">${s.sector}</span>
+        </td>
+        <td class="py-2 px-3 text-right font-mono text-sky-400">${s.current.roe.toFixed(2)}%</td>
+        <td class="py-2 px-3 text-right font-mono text-amber-400">${s.current.pb.toFixed(2)}</td>
+        <td class="py-2 px-3 text-right font-mono">${(s.current.marketCap).toFixed(0)}</td>
+        <td class="py-2 px-3 text-right font-mono text-emerald-400 font-medium">${s.score.toFixed(1)}</td>
+        <td class="py-2 px-3 text-center">
+          <span class="text-xs ${s.quadrant.cls}">${s.quadrant.label}</span>
+        </td>
+      `;
+      tr.addEventListener('click', () => {
+        this.highlightInScatter(s.id);
+        this.showDetail(s);
+      });
+      tbody.appendChild(tr);
+    });
+  },
+
+  highlightInScatter(stockId) {
+    document.querySelectorAll('#stockTableBody tr').forEach(tr => tr.classList.remove('highlighted'));
+    const tr = document.querySelector(`#stockTableBody tr[data-id="${stockId}"]`);
+    if (tr) tr.classList.add('highlighted');
+  },
+
+  showDetail(stock) {
+    this.selectedStock = stock;
+    const d = stock.current;
+    document.getElementById('modalName').textContent = stock.name;
+    document.getElementById('modalCode').textContent = `${stock.code} · ${stock.sector}`;
+    document.getElementById('modalRoe').textContent = d.roe.toFixed(2) + '%';
+    document.getElementById('modalPb').textContent = d.pb.toFixed(2);
+    document.getElementById('modalCap').textContent = (d.marketCap).toFixed(0) + '亿';
+    document.getElementById('modalScore').textContent = stock.score.toFixed(1);
+
+    document.getElementById('modalRevenue').textContent = (d.revenue).toFixed(1) + '亿';
+    document.getElementById('modalProfit').textContent = (d.profit).toFixed(1) + '亿';
+    document.getElementById('modalAssets').textContent = (d.assets).toFixed(1) + '亿';
+    document.getElementById('modalEquity').textContent = (d.equity).toFixed(1) + '亿';
+    document.getElementById('modalDebtRatio').textContent = (d.debtRatio*100).toFixed(1) + '%';
+    document.getElementById('modalGrossMargin').textContent = (d.grossMargin*100).toFixed(1) + '%';
+    const growthEl = document.getElementById('modalRevenueGrowth');
+    growthEl.textContent = (d.revenueGrowth*100).toFixed(1) + '%';
+    growthEl.className = 'font-mono ' + (d.revenueGrowth >= 0 ? 'text-emerald-400' : 'text-rose-400');
+
+    document.getElementById('detailModal').classList.remove('hidden');
+    this.highlightInScatter(stock.id);
+  },
+
+  closeModal() {
+    document.getElementById('detailModal').classList.add('hidden');
+    document.querySelectorAll('#stockTableBody tr').forEach(tr => tr.classList.remove('highlighted'));
+  },
+
+  showHistory(stock) {
+    document.getElementById('historySection').classList.remove('hidden');
+    document.getElementById('historyStockName').textContent = stock.name;
+
+    const roeData = stock.history.map(h => h.roe);
+    const pbData = stock.history.map(h => h.pb);
+
+    const option = {
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: '#1e293b',
+        borderColor: '#334155',
+        textStyle: { color: '#e2e8f0' }
+      },
+      legend: { data: ['ROE', 'PB'], textStyle: { color: '#94a3b8' }, top: 0 },
+      grid: { left: 50, right: 50, top: 35, bottom: 30 },
+      xAxis: {
+        type: 'category', data: QUARTERS,
+        axisLine: { lineStyle: { color: '#334155' } },
+        axisLabel: { color: '#64748b' }
+      },
+      yAxis: [
+        { type: 'value', name: 'ROE (%)', position: 'left', nameTextStyle: { color: '#64748b' }, axisLine: { lineStyle: { color: '#334155' } }, axisLabel: { color: '#64748b' }, splitLine: { lineStyle: { color: '#1e293b' } } },
+        { type: 'value', name: 'PB', position: 'right', nameTextStyle: { color: '#64748b' }, axisLine: { lineStyle: { color: '#334155' } }, axisLabel: { color: '#64748b' }, splitLine: { show: false } }
+      ],
+      series: [
+        { name: 'ROE', type: 'line', data: roeData, smooth: true, symbol: 'circle', symbolSize: 8, lineStyle: { color: '#0ea5e9', width: 2 }, itemStyle: { color: '#0ea5e9' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{offset:0,color:'rgba(14,165,233,0.3)'},{offset:1,color:'rgba(14,165,233,0)'}] } } },
+        { name: 'PB', type: 'line', data: pbData, smooth: true, symbol: 'circle', symbolSize: 8, lineStyle: { color: '#f59e0b', width: 2 }, itemStyle: { color: '#f59e0b' }, yAxisIndex: 1 }
+      ]
+    };
+    this.charts.history.setOption(option, true);
+
+    // scroll to history
+    document.getElementById('historySection').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  },
+
+  exportCSV() {
+    if (!this.filteredStocks.length) {
+      alert('没有数据可导出');
+      return;
+    }
+    const headers = ['股票名称','股票代码','行业','ROE(%)','PB','市值(亿)','评分','象限','季度'];
+    const rows = this.filteredStocks.map(s => [
+      s.name, s.code, s.sector,
+      s.current.roe.toFixed(2), s.current.pb.toFixed(2),
+      s.current.marketCap.toFixed(0), s.score.toFixed(1),
+      s.quadrant.label, QUARTERS[this.currentQuarter]
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(f => `"${f}"`).join(',')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `PB-ROE分析_${QUARTERS[this.currentQuarter]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+};
+
+// Start
+document.addEventListener('DOMContentLoaded', () => app.init());
+</script>
+</body>
+</html>

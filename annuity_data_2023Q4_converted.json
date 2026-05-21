@@ -1,0 +1,19 @@
+{
+  "quarter": "2023Q4",
+  "exportDate": "2026-05-20T00:00:00",
+  "source": "excel_preview",
+  "data": {
+    "博时基金": {
+      "single_fixed": {
+        "count": "8",
+        "nav": "172315.01",
+        "return": "3.66"
+      },
+      "single_equity": {
+        "count": "77",
+        "nav": "5333379.36",
+        "return": "0.08"
+      }
+    }
+  }
+}

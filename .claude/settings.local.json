@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python convert_excel.py)",
+      "Bash(python convert_excel_data.py)",
+      "Bash(python embed_data.py)"
+    ]
+  }
+}

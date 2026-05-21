@@ -1,0 +1,14 @@
+{
+  "quarter": "2025Q4",
+  "exportDate": "2026-05-20T00:00:00",
+  "source": "excel_preview",
+  "data": {
+    "博时基金": {
+      "single_fixed": {
+        "count": "10",
+        "nav": "522405.37",
+        "return": "2.88"
+      }
+    }
+  }
+}

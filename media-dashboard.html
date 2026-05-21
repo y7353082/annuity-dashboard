@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>家庭媒体与应用管理面板</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'Noto Sans SC', 'sans-serif'],
+          },
+          colors: {
+            slate: {
+              850: '#1e293b',
+              900: '#0f172a',
+              950: '#020617',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #020617;
+      color: #e2e8f0;
+    }
+    .glass {
+      background: rgba(30, 41, 59, 0.6);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+    }
+    .card-hover {
+      transition: all 0.3s ease;
+    }
+    .card-hover:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      border-color: rgba(56, 189, 248, 0.3);
+    }
+    .tab-active {
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      border-color: rgba(56, 189, 248, 0.3);
+    }
+    .status-watched { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+    .status-watching { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+    .status-unwatched { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+    .status-want { background: rgba(251, 146, 60, 0.15); color: #fb923c; }
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+      animation: fadeIn 0.3s ease-out;
+    }
+    .poster-gradient-1 { background: linear-gradient(135deg, #1e3a5f, #0f172a); }
+    .poster-gradient-2 { background: linear-gradient(135deg, #3d1e3a, #0f172a); }
+    .poster-gradient-3 { background: linear-gradient(135deg, #1e3d2f, #0f172a); }
+    .poster-gradient-4 { background: linear-gradient(135deg, #3d3a1e, #0f172a); }
+    .poster-gradient-5 { background: linear-gradient(135deg, #2d1e3d, #0f172a); }
+    .poster-gradient-6 { background: linear-gradient(135deg, #1e2d3d, #0f172a); }
+  </style>
+</head>
+<body class="min-h-screen font-sans">
+  <header class="sticky top-0 z-50 glass border-b border-slate-700/30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold text-white">家庭媒体中心</h1>
+            <p class="text-xs text-slate-400">Media & App Dashboard</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <button onclick="exportData()" class="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm transition-colors border border-slate-700">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            导出备份
+          </button>
+          <label class="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm transition-colors border border-slate-700 cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            导入备份
+            <input type="file" accept=".json" onchange="importData(this)" class="hidden">
+          </label>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" id="statsContainer"></div>
+
+    <div class="flex gap-2 mb-6 overflow-x-auto scrollbar-hide pb-1">
+      <button onclick="switchTab('apps')" id="tab-apps" class="tab-btn tab-active px-5 py-2.5 rounded-lg text-sm font-medium border border-transparent whitespace-nowrap transition-all">
+        <span class="flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          应用中心
+        </span>
+      </button>
+      <button onclick="switchTab('media')" id="tab-media" class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 border border-transparent hover:text-slate-200 hover:bg-slate-800 whitespace-nowrap transition-all">
+        <span class="flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg>
+          影视资源
+        </span>
+      </button>
+      <button onclick="switchTab('storage')" id="tab-storage" class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 border border-transparent hover:text-slate-200 hover:bg-slate-800 whitespace-nowrap transition-all">
+        <span class="flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+          存储管理
+        </span>
+      </button>
+    </div>
+
+    <div class="flex flex-col sm:flex-row gap-3 mb-6">
+      <div class="relative flex-1">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input type="text" id="searchInput" placeholder="搜索应用或影视..." class="w-full pl-10 pr-4 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 text-sm">
+      </div>
+      <div class="flex gap-2">
+        <select id="categoryFilter" onchange="renderCurrentTab()" class="px-4 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-sm focus:outline-none focus:border-sky-500">
+          <option value="">全部分类</option>
+        </select>
+        <select id="statusFilter" onchange="renderCurrentTab()" class="px-4 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-sm focus:outline-none focus:border-sky-500">
+          <option value="">全部状态</option>
+        </select>
+        <button onclick="openAddModal()" class="px-5 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          添加
+        </button>
+      </div>
+    </div>
+
+    <div id="contentArea" class="min-h-[400px]"></div>
+  </main>
+
+  <div id="modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeModal()"></div>
+    <div class="absolute inset-x-4 top-[5%] sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl">
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h2 id="modalTitle" class="text-lg font-bold text-white">添加应用</h2>
+          <button onclick="closeModal()" class="p-2 rounded-lg hover:bg-slate-800 text-slate-400 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <form id="addForm" onsubmit="saveItem(event)">
+          <input type="hidden" id="editId">
+          <input type="hidden" id="editType">
+          <div class="space-y-4" id="formFields"></div>
+          <div class="flex gap-3 mt-6">
+            <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium transition-colors border border-slate-700">取消</button>
+            <button type="submit" class="flex-1 px-4 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm font-medium transition-colors">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 hidden">
+    <div class="px-5 py-3 rounded-xl bg-slate-800 border border-slate-700 shadow-2xl flex items-center gap-3">
+      <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+      <span id="toastMsg" class="text-sm text-slate-200">操作成功</span>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'media_dashboard_data_v1';
+
+    const DEFAULT_DATA = {
+      apps: [
+        { id: 'app-1', name: '当贝市场', category: '工具', version: '5.0.5', url: 'https://www.dangbei.com/appco/', desc: 'TV端应用商店，资源丰富', status: 'installed', icon: '📦' },
+        { id: 'app-2', name: 'Kodi', category: '播放器', version: '21.0', url: 'https://kodi.tv/download/', desc: '开源全能媒体中心，支持海报墙', status: 'not-installed', icon: '🎬' },
+        { id: 'app-3', name: 'ES文件浏览器', category: '工具', version: '4.4.0', url: '', desc: '文件管理，支持局域网共享', status: 'installed', icon: '📁' },
+        { id: 'app-4', name: 'Nova Video Player', category: '播放器', version: '6.2.0', url: 'https://github.com/nova-video-player/aos-AVP/releases', desc: '轻量海报墙播放器，比Kodi易用', status: 'not-installed', icon: '🎞️' },
+        { id: 'app-5', name: 'Filmly', category: '播放器', version: '1.0.0', url: '', desc: '网易出品，支持网盘挂载自动刮削', status: 'not-installed', icon: '☁️' },
+        { id: 'app-6', name: '小白云盘TV', category: '网盘', version: '1.0', url: '', desc: '阿里云盘第三方TV客户端', status: 'not-installed', icon: '☁️' },
+        { id: 'app-7', name: '央视频TV', category: '直播', version: 'latest', url: '', desc: '央视官方直播应用', status: 'installed', icon: '📺' },
+        { id: 'app-8', name: '咪视界', category: '直播', version: 'latest', url: '', desc: '咪咕视频TV版，体育直播', status: 'not-installed', icon: '📺' },
+        { id: 'app-9', name: 'VLC', category: '播放器', version: '3.5.0', url: 'https://www.videolan.org/vlc/download-android.html', desc: '万能本地播放器', status: 'not-installed', icon: '▶️' },
+        { id: 'app-10', name: '乐播投屏', category: '工具', version: '5.0', url: '', desc: '手机/电脑投屏到电视', status: 'installed', icon: '📲' },
+      ],
+      media: [
+        { id: 'med-1', title: '肖申克的救赎', type: 'movie', year: 1994, rating: 9.7, status: 'watched', storage: '本地NAS', note: '经典必看，4K HDR版本' },
+        { id: 'med-2', title: '绝命毒师', type: 'series', year: 2008, rating: 9.6, status: 'watched', storage: '本地NAS', note: '全五季已看完' },
+        { id: 'med-3', title: '沙丘2', type: 'movie', year: 2024, rating: 8.2, status: 'unwatched', storage: '阿里云盘', note: '等待4K资源' },
+        { id: 'med-4', title: '黑袍纠察队', type: 'series', year: 2019, rating: 8.7, status: 'watching', storage: '本地NAS', note: '看到第四季第3集' },
+        { id: 'med-5', title: '星际穿越', type: 'movie', year: 2014, rating: 9.4, status: 'watched', storage: '本地NAS', note: 'IMAX版' },
+        { id: 'med-6', title: '最后生还者', type: 'series', year: 2023, rating: 9.0, status: 'unwatched', storage: '阿里云盘', note: 'HBO改编，游戏粉必看' },
+        { id: 'med-7', title: '奥本海默', type: 'movie', year: 2023, rating: 8.8, status: 'watched', storage: '本地NAS', note: '蓝光原盘' },
+        { id: 'med-8', title: '继承之战', type: 'series', year: 2018, rating: 9.3, status: 'want', storage: '', note: '艾美奖大赢家，待下载' },
+      ],
+      storage: [
+        { id: 'stor-1', name: '群晖NAS', type: 'nas', capacity: 8192, used: 6144, unit: 'GB', path: 'smb://192.168.1.100/video' },
+        { id: 'stor-2', name: '阿里云盘', type: 'cloud', capacity: 10240, used: 3072, unit: 'GB', path: 'aliyundrive://film' },
+        { id: 'stor-3', name: '移动硬盘1', type: 'local', capacity: 5120, used: 4096, unit: 'GB', path: '/mnt/usb1' },
+      ]
+    };
+
+    let data = loadData();
+    let currentTab = 'apps';
+
+    function loadData() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === 'object') {
+            return {
+              apps: Array.isArray(parsed.apps) ? parsed.apps : DEFAULT_DATA.apps,
+              media: Array.isArray(parsed.media) ? parsed.media : DEFAULT_DATA.media,
+              storage: Array.isArray(parsed.storage) ? parsed.storage : DEFAULT_DATA.storage,
+            };
+          }
+        }
+      } catch (e) {
+        console.error('加载本地数据失败:', e);
+      }
+      return JSON.parse(JSON.stringify(DEFAULT_DATA));
+    }
+
+    function saveData() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      renderStats();
+    }
+
+    function renderStats() {
+      const apps = Array.isArray(data.apps) ? data.apps : [];
+      const media = Array.isArray(data.media) ? data.media : [];
+      const appTotal = apps.length;
+      const appInstalled = apps.filter(a => a.status === 'installed').length;
+      const mediaTotal = media.length;
+      const mediaWatched = media.filter(m => m.status === 'watched').length;
+      const avgRating = media.length > 0 ? (media.reduce((s, m) => s + (m.rating || 0), 0) / media.length).toFixed(1) : '0.0';
+
+      const stats = [
+        { label: '已装应用', value: appInstalled + '/' + appTotal, color: 'from-emerald-500 to-teal-600', icon: '⚙️' },
+        { label: '影视总数', value: mediaTotal, color: 'from-sky-500 to-blue-600', icon: '🎬' },
+        { label: '已看完', value: mediaWatched, color: 'from-violet-500 to-purple-600', icon: '✅' },
+        { label: '平均评分', value: avgRating, color: 'from-amber-500 to-orange-600', icon: '⭐' },
+      ];
+
+      var html = '';
+      for (var i = 0; i < stats.length; i++) {
+        var s = stats[i];
+        html += '<div class="glass rounded-xl p-4 card-hover">';
+        html += '<div class="flex items-center gap-3 mb-2">';
+        html += '<div class="w-8 h-8 rounded-lg bg-gradient-to-br ' + s.color + ' flex items-center justify-center text-sm">' + s.icon + '</div>';
+        html += '<span class="text-xs text-slate-400">' + s.label + '</span>';
+        html += '</div>';
+        html += '<div class="text-2xl font-bold text-white">' + s.value + '</div>';
+        html += '</div>';
+      }
+      document.getElementById('statsContainer').innerHTML = html;
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab-btn').forEach(function(btn) {
+        btn.classList.remove('tab-active');
+        btn.classList.add('text-slate-400');
+      });
+      var activeBtn = document.getElementById('tab-' + tab);
+      activeBtn.classList.add('tab-active');
+      activeBtn.classList.remove('text-slate-400');
+      renderCurrentTab();
+      updateFilterOptions();
+    }
+
+    function updateFilterOptions() {
+      var catFilter = document.getElementById('categoryFilter');
+      var statFilter = document.getElementById('statusFilter');
+      catFilter.style.display = '';
+      statFilter.style.display = '';
+
+      if (currentTab === 'apps') {
+        var apps = Array.isArray(data.apps) ? data.apps : [];
+        var cats = [];
+        var seen = {};
+        for (var i = 0; i < apps.length; i++) {
+          var c = apps[i].category;
+          if (c && !seen[c]) { seen[c] = true; cats.push(c); }
+        }
+        var opts = '<option value="">全部分类</option>';
+        for (var j = 0; j < cats.length; j++) {
+          opts += '<option value="' + cats[j] + '">' + cats[j] + '</option>';
+        }
+        catFilter.innerHTML = opts;
+        statFilter.innerHTML = '<option value="">全部状态</option><option value="installed">已安装</option><option value="not-installed">未安装</option>';
+      } else if (currentTab === 'media') {
+        catFilter.innerHTML = '<option value="">全部类型</option><option value="movie">电影</option><option value="series">剧集</option>';
+        statFilter.innerHTML = '<option value="">全部状态</option><option value="watched">已看完</option><option value="watching">在看</option><option value="unwatched">未看</option><option value="want">想看</option>';
+      } else {
+        catFilter.style.display = 'none';
+        statFilter.style.display = 'none';
+      }
+    }
+
+    function renderCurrentTab() {
+      var search = document.getElementById('searchInput').value.toLowerCase();
+      var cat = document.getElementById('categoryFilter').value;
+      var status = document.getElementById('statusFilter').value;
+      var container = document.getElementById('contentArea');
+
+      if (currentTab === 'apps') {
+        var apps = Array.isArray(data.apps) ? data.apps : [];
+        var filtered = apps.filter(function(a) {
+          var matchSearch = !search || (a.name && a.name.toLowerCase().indexOf(search) !== -1) || (a.desc && a.desc.toLowerCase().indexOf(search) !== -1);
+          var matchCat = !cat || a.category === cat;
+          var matchStatus = !status || a.status === status;
+          return matchSearch && matchCat && matchStatus;
+        });
+        container.innerHTML = renderApps(filtered);
+      } else if (currentTab === 'media') {
+        var media = Array.isArray(data.media) ? data.media : [];
+        var filtered = media.filter(function(m) {
+          var matchSearch = !search || (m.title && m.title.toLowerCase().indexOf(search) !== -1) || (m.note && m.note.toLowerCase().indexOf(search) !== -1);
+          var matchCat = !cat || m.type === cat;
+          var matchStatus = !status || m.status === status;
+          return matchSearch && matchCat && matchStatus;
+        });
+        container.innerHTML = renderMedia(filtered);
+      } else {
+        container.innerHTML = renderStorage();
+      }
+    }
+
+    function renderApps(apps) {
+      if (apps.length === 0) return emptyState('暂无应用，点击右上角添加');
+      var html = '<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">';
+      for (var i = 0; i < apps.length; i++) {
+        var app = apps[i];
+        var statusClass = app.status === 'installed' ? 'status-watched' : 'status-unwatched';
+        var statusText = app.status === 'installed' ? '已安装' : '未安装';
+        var btnClass = app.status === 'installed' ? 'bg-slate-800 hover:bg-slate-700 text-slate-400' : 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400';
+        var btnText = app.status === 'installed' ? '标记未装' : '标记已装';
+        var urlBtn = '';
+        if (app.url) {
+          urlBtn = '<a href="' + app.url + '" target="_blank" class="flex-1 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors text-center border border-slate-700">下载页面</a>';
+        } else {
+          urlBtn = '<span class="flex-1 text-center text-xs text-slate-600 py-2">无下载链接</span>';
+        }
+        html += '<div class="glass rounded-xl p-5 card-hover animate-fade-in group">';
+        html += '<div class="flex items-start justify-between mb-3">';
+        html += '<div class="flex items-center gap-3">';
+        html += '<div class="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center text-2xl">' + (app.icon || '📦') + '</div>';
+        html += '<div><h3 class="font-semibold text-white">' + app.name + '</h3>';
+        html += '<span class="text-xs text-slate-400">' + app.category + ' · v' + app.version + '</span></div></div>';
+        html += '<span class="px-2.5 py-1 rounded-full text-xs font-medium ' + statusClass + '">' + statusText + '</span></div>';
+        html += '<p class="text-sm text-slate-400 mb-4 line-clamp-2">' + (app.desc || '') + '</p>';
+        html += '<div class="flex items-center gap-2">' + urlBtn;
+        html += '<button onclick="toggleAppStatus(\'' + app.id + '\')" class="px-3 py-2 rounded-lg ' + btnClass + ' text-xs font-medium transition-colors border border-slate-700">' + btnText + '</button>';
+        html += '<button onclick="editItem(\'' + app.id + '\', \'apps\')" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 transition-colors border border-slate-700">';
+        html += '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>';
+        html += '</button>';
+        html += '<button onclick="deleteItem(\'' + app.id + '\', \'apps\')" class="p-2 rounded-lg bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 transition-colors border border-slate-700">';
+        html += '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
+        html += '</button></div></div>';
+      }
+      html += '</div>';
+      return html;
+    }
+
+    function renderMedia(mediaList) {
+      if (mediaList.length === 0) return emptyState('暂无影视资源，点击右上角添加');
+      var gradients = ['poster-gradient-1', 'poster-gradient-2', 'poster-gradient-3', 'poster-gradient-4', 'poster-gradient-5', 'poster-gradient-6'];
+      var statusLabels = { watched: '已看完', watching: '在看', unwatched: '未看', want: '想看' };
+      var statusClasses = { watched: 'status-watched', watching: 'status-watching', unwatched: 'status-unwatched', want: 'status-want' };
+      var html = '<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">';
+      for (var i = 0; i < mediaList.length; i++) {
+        var m = mediaList[i];
+        var grad = gradients[i % gradients.length];
+        var typeLabel = m.type === 'movie' ? '电影' : '剧集';
+        var statusLabel = statusLabels[m.status] || '未看';
+        var statusClass = statusClasses[m.status] || 'status-unwatched';
+        var firstChar = m.title ? m.title.charAt(0) : '?';
+        html += '<div class="glass rounded-xl overflow-hidden card-hover animate-fade-in group">';
+        html += '<div class="aspect-[2/3] ' + grad + ' flex items-center justify-center relative">';
+        html += '<span class="text-4xl font-bold text-white/20 select-none">' + firstChar + '</span>';
+        html += '<div class="absolute top-2 right-2"><span class="px-2 py-0.5 rounded text-xs font-medium bg-black/50 text-white/80 backdrop-blur">' + typeLabel + '</span></div>';
+        html += '<div class="absolute bottom-2 left-2 right-2 flex items-center justify-between">';
+        html += '<span class="px-2 py-0.5 rounded text-xs font-medium bg-black/50 text-amber-400 backdrop-blur">⭐ ' + m.rating + '</span>';
+        html += '<span class="px-2 py-0.5 rounded text-xs font-medium ' + statusClass + ' backdrop-blur">' + statusLabel + '</span>';
+        html += '</div></div>';
+        html += '<div class="p-4">';
+        html += '<h3 class="font-semibold text-white text-sm mb-1 truncate">' + m.title + '</h3>';
+        html += '<p class="text-xs text-slate-400 mb-1">' + m.year + ' · ' + (m.storage || '未指定存储') + '</p>';
+        if (m.note) {
+          html += '<p class="text-xs text-slate-500 line-clamp-2 mb-3">' + m.note + '</p>';
+        } else {
+          html += '<div class="mb-3"></div>';
+        }
+        html += '<div class="flex gap-2">';
+        html += '<button onclick="cycleMediaStatus(\'' + m.id + '\')" class="flex-1 px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs transition-colors border border-slate-700">切换状态</button>';
+        html += '<button onclick="editItem(\'' + m.id + '\', \'media\')" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 transition-colors border border-slate-700">';
+        html += '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>';
+        html += '</button>';
+        html += '<button onclick="deleteItem(\'' + m.id + '\', \'media\')" class="p-1.5 rounded-lg bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 transition-colors border border-slate-700">';
+        html += '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
+        html += '</button></div></div></div>';
+      }
+      html += '</div>';
+      return html;
+    }
+
+    function renderStorage() {
+      var storage = Array.isArray(data.storage) ? data.storage : [];
+      if (storage.length === 0) return emptyState('暂无存储设备');
+      var typeLabels = { nas: 'NAS', cloud: '云盘', local: '本地' };
+      var html = '<div class="space-y-4">';
+      for (var i = 0; i < storage.length; i++) {
+        var s = storage[i];
+        var pct = Math.round((s.used / s.capacity) * 100);
+        var barColor = pct > 85 ? 'bg-red-500' : pct > 65 ? 'bg-amber-500' : 'bg-emerald-500';
+        var icon = s.type === 'nas' ? '🖥️' : s.type === 'cloud' ? '☁️' : '💾';
+        html += '<div class="glass rounded-xl p-5 animate-fade-in">';
+        html += '<div class="flex items-center justify-between mb-4">';
+        html += '<div class="flex items-center gap-3">';
+        html += '<div class="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center text-lg">' + icon + '</div>';
+        html += '<div><h3 class="font-semibold text-white">' + s.name + '</h3>';
+        html += '<span class="text-xs text-slate-400">' + (typeLabels[s.type] || s.type) + ' · ' + s.path + '</span></div></div>';
+        html += '<div class="text-right">';
+        html += '<div class="text-sm font-semibold text-white">' + pct + '%</div>';
+        html += '<div class="text-xs text-slate-400">' + formatSize(s.used) + ' / ' + formatSize(s.capacity) + ' ' + s.unit + '</div>';
+        html += '</div></div>';
+        html += '<div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">';
+        html += '<div class="h-full ' + barColor + ' rounded-full transition-all duration-500" style="width: ' + pct + '%"></div>';
+        html += '</div></div>';
+      }
+      html += '</div>';
+      return html;
+    }
+
+    function formatSize(size) {
+      if (size >= 1024) return (size / 1024).toFixed(1) + ' TB';
+      return size + ' GB';
+    }
+
+    function emptyState(msg) {
+      return '<div class="flex flex-col items-center justify-center py-20 text-slate-500"><svg class="w-16 h-16 mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg><p class="text-sm">' + msg + '</p></div>';
+    }
+
+    function toggleAppStatus(id) {
+      var app = data.apps.find(function(a) { return a.id === id; });
+      if (app) {
+        app.status = app.status === 'installed' ? 'not-installed' : 'installed';
+        saveData();
+        renderCurrentTab();
+        showToast(app.status === 'installed' ? '已标记为已安装' : '已标记为未安装');
+      }
+    }
+
+    function cycleMediaStatus(id) {
+      var m = data.media.find(function(x) { return x.id === id; });
+      if (m) {
+        var cycle = ['unwatched', 'watching', 'watched', 'want'];
+        var idx = cycle.indexOf(m.status);
+        m.status = cycle[(idx + 1) % cycle.length];
+        saveData();
+        renderCurrentTab();
+        var labels = { watched: '已看完', watching: '在看', unwatched: '未看', want: '想看' };
+        showToast('状态更新：' + labels[m.status]);
+      }
+    }
+
+    function deleteItem(id, type) {
+      if (!confirm('确定要删除吗？')) return;
+      data[type] = data[type].filter(function(x) { return x.id !== id; });
+      saveData();
+      renderCurrentTab();
+      showToast('已删除');
+    }
+
+    function openAddModal() {
+      document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('editId').value = '';
+      document.getElementById('editType').value = currentTab === 'storage' ? 'storage' : currentTab;
+      renderFormFields(currentTab === 'storage' ? 'storage' : currentTab, null);
+    }
+
+    function editItem(id, type) {
+      var item = data[type].find(function(x) { return x.id === id; });
+      if (!item) return;
+      document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('editId').value = id;
+      document.getElementById('editType').value = type;
+      renderFormFields(type, item);
+    }
+
+    function renderFormFields(type, item) {
+      var isEdit = !!item;
+      var title = isEdit ? '编辑' : '添加';
+      if (type === 'apps') title += '应用';
+      else if (type === 'media') title += '影视';
+      else title += '存储';
+      document.getElementById('modalTitle').textContent = title;
+
+      var fields = '';
+      var val = function(k) { return item && item[k] ? item[k] : ''; };
+      var sel = function(k, v) { return item && item[k] === v ? 'selected' : ''; };
+
+      if (type === 'apps') {
+        fields += '<div><label class="block text-sm text-slate-400 mb-1.5">应用名称</label><input type="text" name="name" value="' + val('name') + '" required class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-sky-500 text-sm"></div>';
+        fields += '<div class="grid grid-cols-2 gap-3"><div><label class="block text-sm text-slate-400 mb-1.5">分类</label><input type="text" name="category" value="' + val('category') + '" placeholder="如：播放器、工具" required class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-sky-500 text-sm"></div>';
+        fields += '<div><label class="block text-sm text-slate-400 mb-1.5">版本</label><input type="text" name="version" value="' + val('version') + '" placeholder="1.0.0" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-sky-500 text-sm"></div></div>';
+        fields += '<div><label class="block text-sm text-slate-400 mb-1.5">下载链接</label><input type="url" name="url" value="' + val('url') + '" placeholder="https://..." class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-sky-500 text-sm"></div>';
+        fields += '<div><label class="block text-sm text-slate-400 mb-1.5">图标</label><input type="text" name="icon" value="' + val('icon') + '" placeholder="emoji 或文字，如：📦" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-sky-500 text-sm"></div>';
+        fields += '<div><label class="block text-sm text-slate-400 mb-1.5">说明</label><textarea name="desc" rows="2" placeholder="应用功能描述..." class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-sky-500 text-sm resize-none">' + val('desc') + '</textarea></div>';
+        fields += '<div><label class="block text-sm text-slate-400 mb-1.5">安装状态</label><select name="status" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-sky-500 text-sm">';
+        fields += '<option value="not-installed" ' + sel('status', 'not-installed') + '>未安装</option>';
+        fields += '<option value="installed" ' + sel('status', 'installed') + '>已安装</option></select></div>';
+      } else if (type === 'media') {
+        fields += '<div><label class="block text-sm text-slate-400 mb-1.5">名称</label><input type="text" name="title" value="' + val('title') + '" required class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-sky-500 text-sm"></div>';
+        fields += '<div class="grid grid-cols-2 gap-3"><div><label class="block text-sm text-slate-400 mb-1.5">类型</label><select name="type" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-sky-500 text-sm">';
+        fields += '<option value="movie" ' + sel('type', 'movie') + '>电影</option>';
+        fields += '<option value="series" ' + sel('type', 'series') + '>剧集</option></select></div>';
+        fields += '<div><label class="block text-sm text-slate-400 mb-1.5">年份</label><input type="number" name="year" value="' + val('year') + '" placeholder="2024" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-sky-500 text-sm"></div></div>';
+        fields += '<div class="grid grid-cols-2 gap-3"><div><label class="block text-sm text-slate-400 mb-1.5">评分 (0-10)</label><input type="number" name="rating" value="' + val('rating') + '" step="0.1" min="0" max="10" placeholder="8.5" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-sky-500 text-sm"></div>';
+        fields += '<div><label class="block text-sm text-slate-400 mb-1.5">观看状态</label><select name="status" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-sky-500 text-sm">';
+        fields += '<option value="unwatched" ' + sel('status', 'unwatched') + '>未看</option>';
+        fields += '<option value="want" ' + sel('status', 'want') + '>想看</option>';
+        fields += '<option value="watching" ' + sel('status', 'watching') + '>在看</option>';
+        fields += '<option value="watched" ' + sel('status', 'watched') + '>已看完</option></select></div></div>';
+        fields += '<div><label class="block text-sm text-slate-400 mb-1.5">存储位置</label><input type="text" name="storage" value="' + val('storage') + '" placeholder="如：本地NAS、阿里云盘" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-sky-500 text-sm"></div>';
+        fields += '<div><label class="block text-sm text-slate-400 mb-1.5">备注</label><textarea name="note" rows="2" placeholder="版本信息、观看进度等..." class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-sky-500 text-sm resize-none">' + val('note') + '</textarea></div>';
+      } else {
+        fields += '<div><label class="block text-sm text-slate-400 mb-1.5">设备名称</label><input type="text" name="name" value="' + val('name') + '" required class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-sky-500 text-sm"></div>';
+        fields += '<div><label class="block text-sm text-slate-400 mb-1.5">类型</label><select name="type" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-sky-500 text-sm">';
+        fields += '<option value="nas" ' + sel('type', 'nas') + '>NAS</option>';
+        fields += '<option value="cloud" ' + sel('type', 'cloud') + '>云盘</option>';
+        fields += '<option value="local" ' + sel('type', 'local') + '>本地磁盘</option></select></div>';
+        fields += '<div class="grid grid-cols-2 gap-3"><div><label class="block text-sm text-slate-400 mb-1.5">总容量 (GB)</label><input type="number" name="capacity" value="' + val('capacity') + '" required class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-sky-500 text-sm"></div>';
+        fields += '<div><label class="block text-sm text-slate-400 mb-1.5">已使用 (GB)</label><input type="number" name="used" value="' + val('used') + '" required class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-sky-500 text-sm"></div></div>';
+        fields += '<div><label class="block text-sm text-slate-400 mb-1.5">访问路径</label><input type="text" name="path" value="' + val('path') + '" placeholder="如：smb://192.168.1.100" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 focus:outline-none focus:border-sky-500 text-sm"></div>';
+      }
+      document.getElementById('formFields').innerHTML = fields;
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.add('hidden');
+    }
+
+    function saveItem(e) {
+      e.preventDefault();
+      var form = e.target;
+      var type = document.getElementById('editType').value;
+      var editId = document.getElementById('editId').value;
+      var formData = new FormData(form);
+      var item = {};
+      formData.forEach(function(v, k) { item[k] = v; });
+
+      if (type === 'apps') {
+        if (editId) {
+          var idx = data.apps.findIndex(function(a) { return a.id === editId; });
+          if (idx >= 0) { data.apps[idx] = Object.assign({}, data.apps[idx], item); }
+        } else {
+          item.id = 'app-' + Date.now();
+          item.icon = item.icon || '📦';
+          data.apps.push(item);
+        }
+      } else if (type === 'media') {
+        item.rating = parseFloat(item.rating) || 0;
+        item.year = parseInt(item.year) || 0;
+        if (editId) {
+          var idx = data.media.findIndex(function(m) { return m.id === editId; });
+          if (idx >= 0) { data.media[idx] = Object.assign({}, data.media[idx], item); }
+        } else {
+          item.id = 'med-' + Date.now();
+          data.media.push(item);
+        }
+      } else {
+        item.capacity = parseFloat(item.capacity) || 0;
+        item.used = parseFloat(item.used) || 0;
+        item.unit = 'GB';
+        if (editId) {
+          var idx = data.storage.findIndex(function(s) { return s.id === editId; });
+          if (idx >= 0) { data.storage[idx] = Object.assign({}, data.storage[idx], item); }
+        } else {
+          item.id = 'stor-' + Date.now();
+          data.storage.push(item);
+        }
+      }
+
+      saveData();
+      renderCurrentTab();
+      closeModal();
+      showToast(editId ? '修改已保存' : '添加成功');
+    }
+
+    function exportData() {
+      var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'media-dashboard-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('备份已导出');
+    }
+
+    function importData(input) {
+      var file = input.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          var imported = JSON.parse(e.target.result);
+          if (imported.apps || imported.media || imported.storage) {
+            data = Object.assign({}, DEFAULT_DATA, imported);
+            saveData();
+            renderCurrentTab();
+            renderStats();
+            showToast('备份已导入');
+          } else {
+            alert('无效的备份文件');
+          }
+        } catch (err) {
+          alert('文件解析失败');
+        }
+      };
+      reader.readAsText(file);
+      input.value = '';
+    }
+
+    function showToast(msg) {
+      var toast = document.getElementById('toast');
+      document.getElementById('toastMsg').textContent = msg;
+      toast.classList.remove('hidden');
+      setTimeout(function() { toast.classList.add('hidden'); }, 2500);
+    }
+
+    document.getElementById('searchInput').addEventListener('input', function() { renderCurrentTab(); });
+
+    renderStats();
+    updateFilterOptions();
+    renderCurrentTab();
+  </script>
+</body>
+</html>
